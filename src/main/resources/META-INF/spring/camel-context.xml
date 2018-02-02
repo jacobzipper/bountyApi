@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    http://code.google.com/a/apache-extras.org/p/camel-extra
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301, USA.
+
+    http://www.gnu.org/licenses/gpl-2.0-standalone.html
+-->
+
+<!-- Configures the Camel Context-->
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+
+  <!-- this is the JDBC data source which uses an in-memory only Apache Derby database -->
+  <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+    <property name="driverClassName" value="org.postgresql.Driver"/>
+    <property name="url" value="jdbc:postgresql://127.0.0.1:5432/vehicles"/>
+    <property name="username" value="postgres"/>
+    <property name="password" value=""/>
+  </bean>
+
+  <!-- order bean is our business logic bean that creates new orders -->
+  <bean id="vehicleBean" class="bountyApi.VehicleBean"/>
+
+  <camelContext xmlns="http://camel.apache.org/schema/spring">
+    <restConfiguration bindingMode="auto" component="restlet" port="8080"/>
+    <rest path="/v1/">
+      <get uri="/viewvehicles">
+        <route>
+          <setBody>
+            <constant>select * from vehicles</constant>
+          </setBody>
+          <to uri="jdbc:dataSource"/>
+        </route>
+      </get>
+      <get uri="/viewvehicle/{id}">
+        <route>
+          <setBody>
+            <simple>select * from vehicles where id = '${header.id}'</simple>
+          </setBody>
+          <to uri="jdbc:dataSource"/>
+        </route>
+      </get>
+      <post uri="/addvehicle">
+        <route>
+          <log message="Inserted new vehicle ${body}"/>
+          <to uri="bean:vehicleBean?method=authentication(${body[&quot;jwt&quot;]})" />
+          <!--<transform>-->
+            <!--<method ref="Vehicle" method="setK"/>-->
+          <!--</transform>-->
+          <transform>
+            <method ref="vehicleBean" method="generateVehicle(&quot;${body[&quot;name&quot;]}&quot;)"/>
+          </transform>
+          <to uri="hibernate:bountyApi.Vehicle"/>
+          <log message="Inserted new vehicle ${body.id}"/>
+        </route>
+      </post>
+      <post uri="/deletevehicle/{id}">
+        <route>
+          <to uri="bean:vehicleBean?method=authentication(${body[&quot;jwt&quot;]})" />
+          <setBody>
+            <simple>delete from vehicles where id = '${header.id}'</simple>
+          </setBody>
+          <to uri="jdbc:dataSource"/>
+        </route>
+      </post>
+      <post uri="/editvehicle/{id}">
+        <route>
+          <to uri="bean:vehicleBean?method=authentication(${body[&quot;jwt&quot;]})" />
+          <to uri="bean:vehicleBean?method=setStoredString(${body[&quot;name&quot;]})" />
+          <setBody>
+            <simple>delete from vehicles where id = '${header.id}'</simple>
+          </setBody>
+          <to uri="jdbc:dataSource"/>
+          <transform>
+            <method ref="vehicleBean" method="generateVehicle(&quot;${header.id}&quot;,&quot;${body[&quot;name&quot;]}&quot;)"/>
+          </transform>
+          <to uri="hibernate:bountyApi.Vehicle"/>
+        </route>
+      </post>
+    </rest>
+    <!--<route>-->
+      <!--<from uri="hibernate:Vehicle?delay=1s"/>-->
+      <!--<to uri="bean:vehicleBean?method=processVehicle"/>-->
+      <!--<log message="${body}"/>-->
+    <!--</route>-->
+
+  </camelContext>
+
+  <!-- setup the Camel hibernate component -->
+  <bean id="hibernate" class="org.apacheextras.camel.component.hibernate.HibernateComponent">
+    <property name="sessionFactory" ref="sessionFactory"/>
+    <property name="transactionStrategy" ref="springTransactionStrategy"/>
+  </bean>
+
+  <!-- setup hibernate and spring to use transaction -->
+  <bean id="springTransactionStrategy" class="org.apacheextras.camel.component.hibernate.SpringTransactionStrategy">
+    <constructor-arg ref="sessionFactory"/>
+    <constructor-arg ref="transactionTemplate"/>
+  </bean>
+  <bean id="transactionManager" class="org.springframework.orm.hibernate4.HibernateTransactionManager">
+    <property name="sessionFactory" ref="sessionFactory"/>
+  </bean>
+  <bean id="transactionTemplate" class="org.springframework.transaction.support.TransactionTemplate">
+    <property name="transactionManager" ref="transactionManager"/>
+  </bean>
+
+  <!-- setup Hibernate session factory -->
+  <bean id="sessionFactory" class="org.springframework.orm.hibernate4.LocalSessionFactoryBean">
+    <property name="dataSource" ref="dataSource"/>
+    <!-- here we define the hibernate mapping files we use -->
+    <property name="mappingResources">
+      <list>
+        <value>Vehicle.hbm.xml</value>
+      </list>
+    </property>
+    <!-- and here we have additional hibernate options -->
+    <property name="hibernateProperties">
+      <value>
+        hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+        hibernate.hbm2ddl.auto=create
+      </value>
+    </property>
+  </bean>
+
+</beans>
