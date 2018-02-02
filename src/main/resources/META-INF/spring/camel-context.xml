@@ -1,25 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-    http://code.google.com/a/apache-extras.org/p/camel-extra
-
-    This program is free software; you can redistribute it and/or
-    modify it under the terms of the GNU General Public License
-    as published by the Free Software Foundation; either version 2
-    of the License, or (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-    02110-1301, USA.
-
-    http://www.gnu.org/licenses/gpl-2.0-standalone.html
--->
 
 <!-- Configures the Camel Context-->
 
@@ -29,7 +8,7 @@
        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
        http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
 
-  <!-- this is the JDBC data source which uses an in-memory only Apache Derby database -->
+  <!-- initialize postgres database (password left out for obvious reasons) -->
   <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
     <property name="driverClassName" value="org.postgresql.Driver"/>
     <property name="url" value="jdbc:postgresql://127.0.0.1:5432/vehicles"/>
@@ -37,13 +16,15 @@
     <property name="password" value=""/>
   </bean>
 
-  <!-- order bean is our business logic bean that creates new orders -->
+  <!-- convenience id for our vehicle bean -->
   <bean id="vehicleBean" class="bountyApi.VehicleBean"/>
 
+  <!-- camel context with all of our rest logic -->
   <camelContext xmlns="http://camel.apache.org/schema/spring">
     <restConfiguration bindingMode="auto" component="restlet" port="8080"/>
     <rest path="/v1/">
       <get uri="/viewvehicles">
+        <description>View all vehicles in database</description>
         <route>
           <setBody>
             <constant>select * from vehicles</constant>
@@ -52,6 +33,7 @@
         </route>
       </get>
       <get uri="/viewvehicle/{id}">
+        <description>View vehicles by id / GET param id</description>
         <route>
           <setBody>
             <simple>select * from vehicles where id = '${header.id}'</simple>
@@ -60,6 +42,7 @@
         </route>
       </get>
       <post uri="/addvehicle">
+        <description>Add a vehicle to the database POST param jwt and name</description>
         <route>
           <log message="Inserted new vehicle ${body}"/>
           <to uri="bean:vehicleBean?method=authentication(${body[&quot;jwt&quot;]})" />
@@ -74,6 +57,7 @@
         </route>
       </post>
       <post uri="/deletevehicle/{id}">
+        <description>Delete a vehicle from the database GET param id POST param jwt</description>
         <route>
           <to uri="bean:vehicleBean?method=authentication(${body[&quot;jwt&quot;]})" />
           <setBody>
@@ -83,6 +67,7 @@
         </route>
       </post>
       <post uri="/editvehicle/{id}">
+        <description>Add a vehicle to the database POST param jwt and name</description>
         <route>
           <to uri="bean:vehicleBean?method=authentication(${body[&quot;jwt&quot;]})" />
           <to uri="bean:vehicleBean?method=setStoredString(${body[&quot;name&quot;]})" />
@@ -97,12 +82,6 @@
         </route>
       </post>
     </rest>
-    <!--<route>-->
-      <!--<from uri="hibernate:Vehicle?delay=1s"/>-->
-      <!--<to uri="bean:vehicleBean?method=processVehicle"/>-->
-      <!--<log message="${body}"/>-->
-    <!--</route>-->
-
   </camelContext>
 
   <!-- setup the Camel hibernate component -->

@@ -35,11 +35,13 @@ import java.util.Map;
  * Bean that generates and process vehicles.
  */
 public class VehicleBean {
-
+    // Hack for edit vehicle to bypass sql overwriting body
     private static String storedString = "";
 
     /**
      * Generates a new order structured as a {@link Map}
+     * @param id the id of the new vehicle
+     * @param name the name of the new vehicle
      */
     public Vehicle generateVehicle(String id, String name) {
         if (name == null) {
@@ -50,8 +52,10 @@ public class VehicleBean {
         vehicle.setId(id);
         return vehicle;
     }
+
     /**
      * Generates a new order structured as a {@link Map}
+     * @param name new name for vehicle
      */
     public Vehicle generateVehicle(String name) {
         Vehicle vehicle = new Vehicle();
@@ -59,20 +63,20 @@ public class VehicleBean {
         return vehicle;
     }
 
+    /**
+     * Hack for editing vehicle that bypasses a quirk of camel where body is overwritten
+     * @param _storedString name to store
+     */
     public void setStoredString(String _storedString) {
         storedString = _storedString;
     }
 
     /**
-     * Processes the order
-     *
-     * @param vehicle  the order
-     * @return the transformed order
+     * Authentication method that validates jwt tokens
+     * @param token the jwt token to validate
+     * @throws AuthenticationException
+     * @throws UnsupportedEncodingException
      */
-    public String processVehicle(Vehicle vehicle) {
-        return "Processed vehicle id " + vehicle.getId() + " name " + vehicle.getName();
-    }
-
     public void authentication(String token) throws AuthenticationException, UnsupportedEncodingException {
         Algorithm algorithm = Algorithm.HMAC256("bounty0xsecret");
         JWTVerifier verifier = JWT.require(algorithm)

@@ -29,32 +29,55 @@ public class Vehicle {
     private int k;
     private String name;
 
+    /**
+     * @return vehicle name
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * @param name new name for vehicle
+     */
     public void setName(String name) {
         this.name = name;
     }
 
+    /**
+     * @return vehicle id
+     */
     public String getId() {
         return id;
     }
 
+    /**
+     * @param id new id for vehicle
+     */
     public void setId(String id) {
         this.id = id;
 
     }
 
+    /**
+     * @return vehicle k (primary key)
+     */
     public int getK() {
         return k;
     }
 
+    /**
+     * @param k new vehicle k (hibernate handles this)
+     */
     public void setK(int k) {
         this.k = k;
+
+        // Hack for auto setting id's
         if (id.equals("") || id.equals("0")) setId();
     }
 
+    /**
+     * Hack for auto setting id's with hibernate
+     */
     public void setId() {
         this.id = this.k + "";
     }
